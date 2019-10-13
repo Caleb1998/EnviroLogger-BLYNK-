@@ -38,6 +38,8 @@ static uint16_t port;
 #include <wiringPiSPI.h>
 
 //FUNCTION DECLARATIONS
+//BLYNK TERMINAL
+WidgetTerminal terminal(V0);
 //sensor functions/GPIO
 float readADC(int);
 void toggleDelay(void);
@@ -75,8 +77,8 @@ BLYNK_WRITE(V1) {
 
 
 void setup() {
-    Blynk.begin(auth, serv, port);
-    //tmr.setInterval(1000, [](){
+   Blynk.begin(auth, serv, port);
+//tmr.setInterval(1000, [](){
     //Blynk.virtualWrite(V0, BlynkMillis()/1000);
     //});
 }
@@ -92,6 +94,7 @@ int main(int argc, char* argv[]) {
     parse_options(argc, argv, auth, serv, port);
     setup();
     initPorts();
+	terminal.clear();
     while(true) {
         loop();
 	temp = getTemp();
