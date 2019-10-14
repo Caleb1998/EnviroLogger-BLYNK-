@@ -113,6 +113,7 @@ int main(int argc, char* argv[]) {
     while(true) {
 	loop();
 	while(startLogging==true){
+	loop();
 	temp = getTemp();
 	temp = round(temp,0);
 	Blynk.virtualWrite(V4,temp);
@@ -128,7 +129,7 @@ int main(int argc, char* argv[]) {
 	int secs = getSecs();
 	long timer = SysTimer()/1000;
 	int timerSec = timer%60;//remainder when seconds divided by 60
-	int timerMins = (timer-timerSec)/60;
+	int timerMins = ((timer-timerSec)%3600)/60;
 	int timerHrs = (timer-timerMins*60-timerSec)/3600;
 
 	checkAlarm();
@@ -319,13 +320,13 @@ lastInterruptTime = interruptTime;
 void start_stop(){
 long interruptTime = millis();
 	if (interruptTime - lastInterruptTime> debounce){
-printf("here:\n");
+//printf("here:\n");
 if(startLogging==true){
 startLogging=false;
-printf("set to false\n");
+printf("Stopped\n");
 }
 else if(startLogging==false){startLogging=true;
-printf("Set to true\n");
+printf("Started\n");
 }
 
 }
