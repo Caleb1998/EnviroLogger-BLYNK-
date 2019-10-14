@@ -40,6 +40,7 @@ static uint16_t port;
 //FUNCTION DECLARATIONS
 //BLYNK TERMINAL
 WidgetTerminal terminal(V0);
+WidgetLED led1(V2);
 //sensor functions/GPIO
 float readADC(int);
 void toggleDelay(void);
@@ -48,6 +49,7 @@ float getTemp();
 float getHumid();
 float getLight();
 float round(float,int);
+void start_stop(void);
 
 //time functions
 void getCurrentTime(void);
@@ -58,6 +60,8 @@ long SysTimer(void);
 void resetTimer(void);
 void checkAlarm(void);
 void dismissAlarm(void);
+
+
 //GLOBAL VARIABLES
 float temp;
 float humidity;
@@ -68,7 +72,7 @@ int HH,MM,SS;//time
 int delayArr[]={1,2,5};
 int delayIndex = 0;
 bool alarmOn = false;
-bool startLogging= false;
+bool startLogging= true;
 char alarmDisp = ' ';
 long alarmDismissTime=0;
 
@@ -107,7 +111,8 @@ int main(int argc, char* argv[]) {
     terminal.clear();
  //   printf("Time\tSys Time\tHumidity\tTemp\tLight\n");
     while(true) {
-        loop();
+	loop();
+	while(startLogging==true){
 	temp = getTemp();
 	temp = round(temp,0);
 	Blynk.virtualWrite(V4,temp);
@@ -145,6 +150,9 @@ int main(int argc, char* argv[]) {
 	delay(200);//less computationally heavy... delay not so high as to potentiall skip over a second
 	}
 	}
+
+	}
+
     return 0;
 }
 
@@ -171,6 +179,10 @@ pullUpDnControl(5,PUD_UP);
 wiringPiISR(5,INT_EDGE_FALLING,dismissAlarm);
 
 //start/stop
+pinMode(17,INPUT);
+pullUpDnControl(17,PUD_UP);
+wiringPiISR(17,INT_EDGE_FALLING,start_stop);
+
 
 //LED output alarm
 pinMode(16,OUTPUT);
@@ -278,6 +290,7 @@ if(alarmDismissTime+(3*60*1000)<millis()||alarmDismissTime==0){
 	alarmDisp = '*';
 	//turn LED on
 	digitalWrite(16,HIGH);
+	led1.on();
 		}
 	}
 
@@ -296,8 +309,27 @@ Blynk.virtualWrite(V0,"Alarm dismissed\n");
 alarmDisp = ' ';
 //turn LED off
 digitalWrite(16,LOW);
+led1.off();
 }
 }
 lastInterruptTime = interruptTime;
+
+}
+
+void start_stop(){
+long interruptTime = millis();
+	if (interruptTime - lastInterruptTime> debounce){
+printf("here:\n");
+if(startLogging==true){
+startLogging=false;
+printf("set to false\n");
+}
+else if(startLogging==false){startLogging=true;
+printf("Set to true\n");
+}
+
+}
+lastInterruptTime = interruptTime;
+
 
 }
