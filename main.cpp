@@ -70,7 +70,7 @@ int delayIndex = 0;
 bool alarmOn = false;
 bool startLogging= false;
 char alarmDisp = ' ';
-long alarmDismissTime;
+long alarmDismissTime=0;
 
 //debouncing
 long lastInterruptTime = 0;
@@ -116,6 +116,7 @@ int main(int argc, char* argv[]) {
 	light = getLight();
 	Blynk.virtualWrite(V6,light);
 	DACout = (light/1023)*humidity;
+	Blynk.virtualWrite(V7,DACout);
 
 	int hours = getHours();
 	int mins = getMins();
@@ -124,11 +125,15 @@ int main(int argc, char* argv[]) {
 	int timerSec = timer%60;//remainder when seconds divided by 60
 	int timerMins = (timer-timerSec)/60;
 	int timerHrs = (timer-timerMins*60-timerSec)/3600;
+
 	checkAlarm();
 	printf("%02d:%02d:%02d\tSys:%02d:%02d:%02d\t",hours,mins,secs,timerHrs,timerMins,timerSec);
-	printf("Hmd:%8.1fV\tTmp:%8.0fC\tLt:%8.0f\tDAC:%8.1fV\t%c\n",humidity,temp,light,DACout,alarmDisp);
-	Blynk.virtualWrite(V0,hours,":",mins,":",secs,"\t T:",(int)temp,"C \tH:",humidity," V\tL:",(int)light,"\t DAC:",DACout,"V\n");    
-
+	printf("Hmd:%8.1fV\tTmp:%8.0fC\tLt:%8.0f\tDAC:%8.2fV\t%c\n",humidity,temp,light,DACout,alarmDisp);
+	Blynk.virtualWrite(V0,hours,":",mins,":",secs,"\t H:",humidity,"V \tT:",(int) temp,"C\tL:",(int)light,"\t DAC:",DACout,"V ");
+	if(alarmDisp=='*'){
+	Blynk.virtualWrite(V0,"*\n");
+	}
+	else{Blynk.virtualWrite(V0,"\n");}
 	//delay for display of next value
 	int temporary = getSecs();
 	temporary = temporary+delayArr[delayIndex];//tempor+delay delay=(1,5,10)
@@ -164,6 +169,12 @@ wiringPiISR(6,INT_EDGE_FALLING,resetTimer);
 pinMode(5,INPUT);
 pullUpDnControl(5,PUD_UP);
 wiringPiISR(5,INT_EDGE_FALLING,dismissAlarm);
+
+//start/stop
+
+//LED output alarm
+pinMode(16,OUTPUT);
+digitalWrite(16,LOW);
 
 int z =wiringPiSPISetup(0, 1350000);//sets up spi channel 0 and sets freq=1.35MHz
 if(z==-1){printf("Something wrong");}
@@ -255,24 +266,38 @@ void resetTimer(){
 long interruptTime = millis();
 	if (interruptTime - lastInterruptTime> debounce){
 		SysZero = millis();
+		terminal.clear();
+		system("clear");
 	}
        	lastInterruptTime = interruptTime;
 }
 
 void checkAlarm(){
-//add timing check
+if(alarmDismissTime+(3*60*1000)<millis()||alarmDismissTime==0){
+	if(DACout>2.65||DACout<0.65){
+	alarmDisp = '*';
+	//turn LED on
+	digitalWrite(16,HIGH);
+		}
+	}
 
-if(DACout>2.65||DACout<0.65){
-alarmDisp = '*';
-}
+//else{printf("cant sound alarm yet\n");}
+
 }
 
 void dismissAlarm(){
-//add debounvong
+//add debouncing
+long interruptTime = millis();
+	if (interruptTime - lastInterruptTime> debounce){
 if(alarmDisp=='*'){
-//alarmDismissTime = millis()'
-printf("\ndismissed\n");
+alarmDismissTime = millis();//this means that alarm will not sound if timer reset... unclear in report outline if relies on time/timer
+printf("Alarm dismissed\n");
+Blynk.virtualWrite(V0,"Alarm dismissed\n");
 alarmDisp = ' ';
+//turn LED off
+digitalWrite(16,LOW);
 }
+}
+lastInterruptTime = interruptTime;
 
 }
