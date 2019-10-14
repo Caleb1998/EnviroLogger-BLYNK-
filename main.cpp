@@ -78,7 +78,7 @@ long alarmDismissTime=0;
 
 //debouncing
 long lastInterruptTime = 0;
-long debounce = 200;
+long debounce = 300;
 long SysZero = 0;
 
 BlynkTimer tmr;
