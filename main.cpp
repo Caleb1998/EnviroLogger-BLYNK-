@@ -54,18 +54,28 @@ void getCurrentTime(void);
 int getHours(void);
 int getMins(void);
 int getSecs(void);
-
-
+long SysTimer(void);
+void resetTimer(void);
+void checkAlarm(void);
+void dismissAlarm(void);
 //GLOBAL VARIABLES
 float temp;
 float humidity;
 float light;
+float DACout;
+
 int HH,MM,SS;//time
 int delayArr[]={1,2,5};
 int delayIndex = 0;
+bool alarmOn = false;
+bool startLogging= false;
+char alarmDisp = ' ';
+long alarmDismissTime;
+
 //debouncing
 long lastInterruptTime = 0;
 long debounce = 200;
+long SysZero = 0;
 
 BlynkTimer tmr;
 
@@ -94,7 +104,8 @@ int main(int argc, char* argv[]) {
     parse_options(argc, argv, auth, serv, port);
     setup();
     initPorts();
-	terminal.clear();
+    terminal.clear();
+ //   printf("Time\tSys Time\tHumidity\tTemp\tLight\n");
     while(true) {
         loop();
 	temp = getTemp();
@@ -104,14 +115,19 @@ int main(int argc, char* argv[]) {
 	Blynk.virtualWrite(V5,humidity);
 	light = getLight();
 	Blynk.virtualWrite(V6,light);
+	DACout = (light/1023)*humidity;
 
 	int hours = getHours();
 	int mins = getMins();
 	int secs = getSecs();
-
-	printf("Time:%02d:%02d:%02d\t",hours,mins,secs);
-	printf("Temp:%.0fC\tHumid:%.1fV\tLight:%.0f\n",temp,humidity,light);
-	Blynk.virtualWrite(V0,hours,":",mins,":",secs,"\tT:",(int)temp,"C \tH:",humidity," V\tLight:",(int)light,"\n");    
+	long timer = SysTimer()/1000;
+	int timerSec = timer%60;//remainder when seconds divided by 60
+	int timerMins = (timer-timerSec)/60;
+	int timerHrs = (timer-timerMins*60-timerSec)/3600;
+	checkAlarm();
+	printf("%02d:%02d:%02d\tSys:%02d:%02d:%02d\t",hours,mins,secs,timerHrs,timerMins,timerSec);
+	printf("Hmd:%8.1fV\tTmp:%8.0fC\tLt:%8.0f\tDAC:%8.1fV\t%c\n",humidity,temp,light,DACout,alarmDisp);
+	Blynk.virtualWrite(V0,hours,":",mins,":",secs,"\t T:",(int)temp,"C \tH:",humidity," V\tL:",(int)light,"\t DAC:",DACout,"V\n");    
 
 	//delay for display of next value
 	int temporary = getSecs();
@@ -121,7 +137,7 @@ int main(int argc, char* argv[]) {
 	}
 	while(secs!=temporary){//while seconds are unchanged //do nothing
 	secs = getSecs();
-	delay(200);//less computationally heavy... delay not so high as to potentiall skip over a seconds
+	delay(200);//less computationally heavy... delay not so high as to potentiall skip over a second
 	}
 	}
     return 0;
@@ -132,10 +148,23 @@ void initPorts(void){
 //analog in for voltage divider 0V-3.3V translates to
 //set port 4 to input analog
 wiringPiSetup();
+
+//Interval toggle button, on BCM 26
 pinMode(26,INPUT);
 pullUpDnControl (26,PUD_UP);
 int x=wiringPiISR(26,INT_EDGE_FALLING,toggleDelay);
 if(x==-1){printf("Something wrong");}
+
+//Reset timer buutton, BCM 6
+pinMode(6,INPUT);
+pullUpDnControl(6,PUD_UP);
+wiringPiISR(6,INT_EDGE_FALLING,resetTimer);
+
+//Alarm dismiss
+pinMode(5,INPUT);
+pullUpDnControl(5,PUD_UP);
+wiringPiISR(5,INT_EDGE_FALLING,dismissAlarm);
+
 int z =wiringPiSPISetup(0, 1350000);//sets up spi channel 0 and sets freq=1.35MHz
 if(z==-1){printf("Something wrong");}
 }
@@ -206,7 +235,7 @@ int getSecs(void){
 
 
 void toggleDelay(void){
-long interruptTime = millis();
+	long interruptTime = millis();
 	if (interruptTime - lastInterruptTime> debounce){
 	delayIndex++;
 		if(delayIndex==3){
@@ -214,4 +243,36 @@ long interruptTime = millis();
 		}
 	}
             lastInterruptTime = interruptTime;
+}
+
+
+long SysTimer(void){
+long sysTime = millis()-SysZero;
+return sysTime;
+}
+
+void resetTimer(){
+long interruptTime = millis();
+	if (interruptTime - lastInterruptTime> debounce){
+		SysZero = millis();
+	}
+       	lastInterruptTime = interruptTime;
+}
+
+void checkAlarm(){
+//add timing check
+
+if(DACout>2.65||DACout<0.65){
+alarmDisp = '*';
+}
+}
+
+void dismissAlarm(){
+//add debounvong
+if(alarmDisp=='*'){
+//alarmDismissTime = millis()'
+printf("\ndismissed\n");
+alarmDisp = ' ';
+}
+
 }
